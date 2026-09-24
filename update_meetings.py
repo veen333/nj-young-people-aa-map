@@ -91,6 +91,18 @@ SOUTH_JERSEY_MEETINGS = [
         "lon": -74.9890,
         "source": "South Jersey",
     },
+    {
+        "name": "Sober Savages Big Book",
+        "day": "Saturday",
+        "time": "7:30 PM",
+        "town": "Clementon",
+        "location": "400 Club",
+        "address": "42 Berlin Road Clementon, NJ 08021, USA",
+        "types": "Big Book, Newcomer, Speaker",
+        "lat": 39.8053,
+        "lon": -74.9890,
+        "source": "South Jersey",
+    },
 ]
 
 
