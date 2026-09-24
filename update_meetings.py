@@ -103,6 +103,18 @@ SOUTH_JERSEY_MEETINGS = [
         "lon": -74.9890,
         "source": "South Jersey",
     },
+    {
+        "name": "Union Hill Friday Night YP",
+        "day": "Friday",
+        "time": "10:30 PM",
+        "town": "Denville",
+        "location": "Union Hill Presbyterian Church",
+        "address": "427 Franklin rd Denville, NJ",
+        "types": "Big Book, Newcomer, Speaker",
+        "lat": 40.86812,
+        "lon": -74.52293,
+        "source": "South Jersey",
+    },
 ]
 
 
