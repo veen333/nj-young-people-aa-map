@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-24T17:53:32.058740+00:00",
+  "updated_at": "2026-09-24T21:13:15.601727+00:00",
   "meetings": [
     {
       "name": "Young People's (ACYP)",
@@ -326,6 +326,18 @@
       "source": "Northern NJ"
     },
     {
+      "name": "Sober Savages",
+      "day": "Friday",
+      "time": "8:30 PM",
+      "town": "Clementon",
+      "location": "400 Club",
+      "address": "42 Berlin Road Clementon, NJ 08021, USA",
+      "types": "Discussion, Newcomer, Step Meeting",
+      "lat": 39.8053,
+      "lon": -74.989,
+      "source": "South Jersey"
+    },
+    {
       "name": "Friday Night Young People",
       "day": "Friday",
       "time": "9:00 PM",
@@ -412,7 +424,7 @@
   ],
   "source_counts": {
     "Northern NJ": 12,
-    "South Jersey": 2,
+    "South Jersey": 3,
     "Cape Atlantic": 20
   },
   "unmapped_count": 1
