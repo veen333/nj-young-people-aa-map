@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-24T21:16:42.180017+00:00",
+  "updated_at": "2026-09-24T21:30:58.133843+00:00",
   "meetings": [
     {
       "name": "Young People's (ACYP)",
@@ -374,6 +374,18 @@
       "source": "Northern NJ"
     },
     {
+      "name": "Union Hill Friday Night YP",
+      "day": "Friday",
+      "time": "10:30 PM",
+      "town": "Denville",
+      "location": "Union Hill Presbyterian Church",
+      "address": "427 Franklin rd Denville, NJ",
+      "types": "Big Book, Newcomer, Speaker",
+      "lat": 40.86812,
+      "lon": -74.52293,
+      "source": "South Jersey"
+    },
+    {
       "name": "Young People's (ACYP)",
       "day": "Saturday",
       "time": "8:00 AM",
@@ -436,7 +448,7 @@
   ],
   "source_counts": {
     "Northern NJ": 12,
-    "South Jersey": 4,
+    "South Jersey": 5,
     "Cape Atlantic": 20
   },
   "unmapped_count": 1
