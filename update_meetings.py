@@ -1,25 +1,10 @@
 #!/usr/bin/env python3
-"""
-NJ Young People AA — GitHub Pages Meeting Updater
+"""Refresh the public NJ Young People AA meeting snapshot.
 
-Sources:
-1. Northern NJ
-   - Searches "Young people"
-   - Searches "Young"
+Northern NJ and Cape Atlantic are refreshed from their live sources.
+South Jersey is hardcoded because AASJ blocks GitHub Actions.
 
-2. South Jersey
-   - First tries https://aasj.org/locations/
-   - If GitHub receives 403, automatically falls back to:
-     https://aasj.org/meeting-list-print-portrait-2-columns.php
-
-3. Cape Atlantic
-   - Uses https://capeatlanticaa.org/locations/
-
-Includes any meeting whose name/designation contains the
-complete word "Young".
-
-Fails closed:
-A failed source will NOT overwrite the last good meetings.json.
+Fail closed: never replace good data with empty/partial live-source data.
 """
 
 import datetime as dt
@@ -30,14 +15,13 @@ import re
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
 
 # ============================================================
-# PATHS
+# PATHS / SOURCES
 # ============================================================
 
 ROOT = Path(__file__).resolve().parent
@@ -45,32 +29,13 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "meetings.json"
 CACHE = ROOT / "geocodes.json"
 
-
-# ============================================================
-# SOURCES
-# ============================================================
-
 NORTH_BASE = (
     "https://nnjaa.org/intergroup/cgi-bin/list_special.php"
-)
-
-SOUTH_LOCATIONS = (
-    "https://aasj.org/locations/"
-)
-
-SOUTH_PRINT = (
-    "https://aasj.org/"
-    "meeting-list-print-portrait-2-columns.php"
 )
 
 CAPE_URL = (
     "https://capeatlanticaa.org/locations/"
 )
-
-
-# ============================================================
-# DAYS
-# ============================================================
 
 DAYS = (
     "Sunday",
@@ -82,12 +47,39 @@ DAYS = (
     "Saturday",
 )
 
-
-# ============================================================
-# LOGGING
-# ============================================================
-
 LOG = logging.getLogger("meetings")
+
+
+# ============================================================
+# HARDCODED SOUTH JERSEY MEETINGS
+# ============================================================
+
+SOUTH_JERSEY_MEETINGS = [
+    {
+        "name": "Cherry Hill Young People",
+        "day": "Wednesday",
+        "time": "8:00 PM",
+        "town": "Haddonfield",
+        "location": "Haddonfield United Methodist Church",
+        "address": "29 Warwick Rd, Haddonfield, NJ 08033, USA",
+        "types": "Big Book, Discussion, Open, Wheelchair Access",
+        "lat": 39.894687,
+        "lon": -75.0369955,
+        "source": "South Jersey",
+    },
+    {
+        "name": "Young Men of Merchantville",
+        "day": "Thursday",
+        "time": "8:00 PM",
+        "town": "Merchantville",
+        "location": "Grace Episcopal Church (Merchantville)",
+        "address": "7 E Maple Ave, Merchantville, NJ 08109, USA",
+        "types": "Big Book, Men, Open",
+        "lat": 39.950836,
+        "lon": -75.0483033,
+        "source": "South Jersey",
+    },
+]
 
 
 # ============================================================
@@ -102,19 +94,13 @@ SESSION.headers.update({
         "(iPhone; CPU iPhone OS 18_0 like Mac OS X) "
         "AppleWebKit/605.1.15 "
         "(KHTML, like Gecko) "
-        "Version/18.0 "
-        "Mobile/15E148 "
-        "Safari/604.1"
+        "Version/18.0 Mobile/15E148 Safari/604.1"
     ),
     "Accept": (
-        "text/html,"
-        "application/xhtml+xml,"
-        "application/xml;q=0.9,"
-        "*/*;q=0.8"
+        "text/html,application/xhtml+xml,"
+        "application/xml;q=0.9,*/*;q=0.8"
     ),
     "Accept-Language": "en-US,en;q=0.9",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
 })
 
 
@@ -126,26 +112,11 @@ def text(value):
     return re.sub(
         r"\s+",
         " ",
-        html.unescape(
-            str(value or "")
-        ),
+        html.unescape(str(value or "")),
     ).strip()
 
 
 def young(value):
-    """
-    Match Young as a complete word.
-
-    Matches:
-    Young People
-    Young Men
-    Young at Heart
-
-    Does not match:
-    Younger
-    Youngstown
-    """
-
     return bool(
         re.search(
             r"\byoung\b",
@@ -156,26 +127,20 @@ def young(value):
 
 
 def valid_coords(lat, lon):
-
     try:
         lat = float(lat)
         lon = float(lon)
 
         return (
             38.7 <= lat <= 41.5
-            and
-            -75.8 <= lon <= -73.7
+            and -75.8 <= lon <= -73.7
         )
 
-    except (
-        TypeError,
-        ValueError,
-    ):
+    except (TypeError, ValueError):
         return False
 
 
 def get_time(value):
-
     match = re.search(
         r"\b\d{1,2}:\d{2}\s*(?:AM|PM)\b",
         str(value or ""),
@@ -194,43 +159,14 @@ def get_time(value):
 # DOWNLOAD
 # ============================================================
 
-def fetch(
-    url,
-    params=None,
-    retries=3,
-):
-
-    host = (
-        urlparse(url)
-        .netloc
-        .lower()
-    )
-
-    headers = {}
-
-    if host.endswith("aasj.org"):
-
-        headers.update({
-            "Referer": "https://aasj.org/",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-User": "?1",
-        })
-
+def fetch(url, params=None):
     last_error = None
 
-    for attempt in range(
-        1,
-        retries + 1,
-    ):
-
+    for attempt in range(1, 4):
         try:
-
             response = SESSION.get(
                 url,
                 params=params,
-                headers=headers,
                 timeout=35,
                 allow_redirects=True,
             )
@@ -244,10 +180,8 @@ def fetch(
             response.raise_for_status()
 
             if not response.text.strip():
-
                 raise ValueError(
-                    "Source returned "
-                    "an empty response"
+                    "Source returned an empty response"
                 )
 
             return response.text
@@ -256,30 +190,21 @@ def fetch(
             requests.RequestException,
             ValueError,
         ) as exc:
-
             last_error = exc
 
-            if attempt < retries:
-
+            if attempt < 3:
                 LOG.warning(
                     "Request failed for %s "
-                    "(attempt %d/%d): %s",
+                    "(attempt %d/3): %s",
                     url,
                     attempt,
-                    retries,
                     exc,
                 )
 
-                time.sleep(
-                    2 * attempt
-                )
+                time.sleep(2 * attempt)
 
-    raise (
-        last_error
-        or RuntimeError(
-            "Unable to download "
-            + url
-        )
+    raise last_error or RuntimeError(
+        "Unable to download " + url
     )
 
 
@@ -288,6 +213,9 @@ def fetch(
 # ============================================================
 
 def cells_from_row(row):
+    """
+    Preserve handling for Northern NJ's malformed HTML.
+    """
 
     cells = row.find_all(
         ["td", "th"],
@@ -297,26 +225,38 @@ def cells_from_row(row):
     output = []
 
     for cell in cells:
-
-        value = text(
-            cell.get_text(
-                " ",
-                strip=True,
-            )
+        nested = cell.find(
+            ["td", "th"],
+            recursive=False,
         )
 
-        classes = " ".join(
-            cell.get(
-                "class",
-                [],
+        if nested:
+            value = " ".join(
+                str(node)
+                for node in cell.contents
+                if getattr(
+                    node,
+                    "name",
+                    None,
+                ) not in ("td", "th")
             )
+
+            value = text(value)
+
+        else:
+            value = text(
+                cell.get_text(
+                    " ",
+                    strip=True,
+                )
+            )
+
+        classes = " ".join(
+            cell.get("class", [])
         )
 
         output.append(
-            (
-                value,
-                classes,
-            )
+            (value, classes)
         )
 
     return output
@@ -326,11 +266,7 @@ def cells_from_row(row):
 # NORTHERN NJ
 # ============================================================
 
-def north_address(
-    location,
-    town,
-):
-
+def north_address(location, town):
     cleaned = re.sub(
         r"^\s*\(\s*Young[^)]*\)\s*",
         "",
@@ -344,34 +280,23 @@ def north_address(
         cleaned,
     )
 
-    cleaned = text(
-        cleaned
-    )
+    cleaned = text(cleaned)
 
     match = re.search(
-        r"\b\d{1,6}"
-        r"(?:-\d{1,6})?"
-        r"\s+.+",
+        r"\b\d{1,6}(?:-\d{1,6})?\s+.+",
         cleaned,
     )
 
-    if match:
-        street = (
-            match.group(0)
-            .strip()
-        )
-
-    else:
-        street = cleaned
-
-    return (
-        f"{street}, "
-        f"{town}, NJ"
+    street = (
+        match.group(0).strip()
+        if match
+        else cleaned
     )
+
+    return f"{street}, {town}, NJ"
 
 
 def north_rows(markup):
-
     soup = BeautifulSoup(
         markup,
         "html.parser",
@@ -380,18 +305,13 @@ def north_rows(markup):
     found = []
 
     for row in soup.select("tr"):
+        cells = cells_from_row(row)
 
-        cells = cells_from_row(
-            row
-        )
-
-        by_class = {}
-
-        for value, classes in cells:
-
-            for cls in classes.split():
-
-                by_class[cls] = value
+        by_class = {
+            cls: value
+            for value, classes in cells
+            for cls in classes.split()
+        }
 
         day = by_class.get(
             "day",
@@ -408,6 +328,8 @@ def north_rows(markup):
             )
         )
 
+        # Northern NJ third column / town is
+        # intentionally used as the meeting title.
         name = by_class.get(
             "town",
             "",
@@ -418,21 +340,13 @@ def north_rows(markup):
             "",
         )
 
-        types = by_class.get(
-            "type",
-            "",
-        )
-
         if not (
-            day
-            and when
+            when
             and name
             and location
-        ):
-            continue
-
-        if not young(
-            name + " " + location
+            and young(
+                name + " " + location
+            )
         ):
             continue
 
@@ -453,7 +367,10 @@ def north_rows(markup):
                 location,
                 name,
             ),
-            "types": types,
+            "types": by_class.get(
+                "type",
+                "",
+            ),
             "lat": None,
             "lon": None,
             "source": "Northern NJ",
@@ -463,18 +380,10 @@ def north_rows(markup):
 
 
 # ============================================================
-# STANDARD 10-COLUMN LOCATIONS TABLE
-#
-# Used by:
-# - South Jersey /locations/
-# - Cape Atlantic /locations/
+# CAPE ATLANTIC
 # ============================================================
 
-def location_rows(
-    markup,
-    source,
-):
-
+def cape_rows(markup):
     soup = BeautifulSoup(
         markup,
         "html.parser",
@@ -483,48 +392,33 @@ def location_rows(
     found = []
 
     for row in soup.select("tr"):
-
-        cells = [
+        c = [
             value
-            for value, _ in
-            cells_from_row(row)
+            for value, _ in cells_from_row(row)
         ]
 
-        if len(cells) < 10:
+        if len(c) < 10:
             continue
 
-        day = cells[0]
-
-        if day not in DAYS:
+        if c[0] not in DAYS:
             continue
 
-        when = get_time(
-            cells[1]
-        )
+        if not young(c[2]):
+            continue
 
-        name = cells[2]
+        when = get_time(c[1])
 
         if not when:
             continue
 
-        if not young(name):
-            continue
-
         try:
-
-            lat = float(
-                cells[8]
-            )
-
-            lon = float(
-                cells[9]
-            )
+            lat = float(c[8])
+            lon = float(c[9])
 
         except (
-            TypeError,
             ValueError,
+            TypeError,
         ):
-
             lat = None
             lon = None
 
@@ -532,233 +426,66 @@ def location_rows(
             lat,
             lon,
         ):
-
             lat = None
             lon = None
 
         found.append({
-            "name": name,
-            "day": day,
+            "name": c[2],
+            "day": c[0],
             "time": when,
-            "town": cells[6],
-            "location": cells[3],
-            "address": cells[4],
-            "types": cells[7],
+            "town": c[6],
+            "location": c[3],
+            "address": c[4],
+            "types": c[7],
             "lat": lat,
             "lon": lon,
-            "source": source,
+            "source": "Cape Atlantic",
         })
 
     return found
 
 
 # ============================================================
-# SOUTH JERSEY PRINTABLE FALLBACK
+# DEDUPLICATION
 # ============================================================
 
-def south_print_rows(markup):
-
-    soup = BeautifulSoup(
-        markup,
-        "html.parser",
-    )
-
-    found = []
-
-    current_day = ""
-
-    # The printable page is organized by day.
-    #
-    # Each physical meeting appears in the order:
-    #
-    # TIME
-    # TYPES
-    # TOWN + MEETING NAME [link]
-    # VENUE
-    # STREET ADDRESS
-    #
-    # We process the visible page line-by-line.
-
-    page_text = soup.get_text(
-        "\n",
-        strip=True,
-    )
-
-    lines = [
-        text(line)
-        for line
-        in page_text.splitlines()
-        if text(line)
-    ]
-
-    i = 0
-
-    while i < len(lines):
-
-        line = lines[i]
-
-        # ------------------------------------------
-        # DAY
-        # ------------------------------------------
-
-        if line in DAYS:
-
-            current_day = line
-            i += 1
-            continue
-
-        # ------------------------------------------
-        # TIME
-        # ------------------------------------------
-
-        when = get_time(line)
-
-        if (
-            not current_day
-            or not when
-            or line.upper() != when
-        ):
-
-            i += 1
-            continue
-
-        # We expect at least:
-        #
-        # time
-        # types
-        # meeting line
-        # venue
-        # address
-
-        if i + 4 >= len(lines):
-
-            i += 1
-            continue
-
-        types = lines[
-            i + 1
-        ]
-
-        meeting_line = lines[
-            i + 2
-        ]
-
-        venue = lines[
-            i + 3
-        ]
-
-        street = lines[
-            i + 4
-        ]
-
-        # Remove printable-page link marker.
-
-        meeting_line = re.sub(
-            r"\s*\[link\]\s*$",
+def meeting_key(meeting):
+    return tuple(
+        re.sub(
+            r"[^a-z0-9]",
             "",
-            meeting_line,
-            flags=re.I,
-        ).strip()
+            str(
+                meeting.get(
+                    field,
+                    "",
+                )
+            ).lower(),
+        )
+        for field in (
+            "source",
+            "name",
+            "day",
+            "time",
+            "address",
+            "types",
+        )
+    )
 
-        if not young(
-            meeting_line
-        ):
 
-            i += 1
+def dedupe(meetings):
+    seen = set()
+    output = []
+
+    for meeting in meetings:
+        key = meeting_key(meeting)
+
+        if key in seen:
             continue
 
-        # ------------------------------------------
-        # DETERMINE TOWN
-        #
-        # The printable list places town before the
-        # meeting name.
-        #
-        # We can derive the actual town from the
-        # street/venue using geocoding, so we do
-        # NOT maintain a hard-coded list of towns.
-        # ------------------------------------------
+        seen.add(key)
+        output.append(meeting)
 
-        town = ""
-
-        # Many meeting names themselves contain a
-        # recognizable "of TOWN" ending.
-
-        of_match = re.search(
-            r"\bof\s+"
-            r"([A-Za-z][A-Za-z .'-]+)$",
-            meeting_line,
-            re.I,
-        )
-
-        if of_match:
-
-            possible_town = text(
-                of_match.group(1)
-            )
-
-            # If the printable line begins with the
-            # same town, separate it.
-
-            if meeting_line.lower().startswith(
-                possible_town.lower()
-                + " "
-            ):
-
-                town = possible_town
-
-                name = meeting_line[
-                    len(possible_town):
-                ].strip()
-
-            else:
-
-                name = meeting_line
-
-        else:
-
-            name = meeting_line
-
-        # ------------------------------------------
-        # ADDRESS
-        #
-        # Printable page provides the street but
-        # not always city/state on the same line.
-        #
-        # If town wasn't determinable yet, ArcGIS
-        # will geocode using venue + street + NJ.
-        # ------------------------------------------
-
-        if town:
-
-            address = (
-                f"{street}, "
-                f"{town}, NJ"
-            )
-
-        else:
-
-            address = (
-                f"{venue}, "
-                f"{street}, NJ"
-            )
-
-        found.append({
-            "name": name,
-            "day": current_day,
-            "time": when,
-            "town": town,
-            "location": venue,
-            "address": address,
-            "types": types,
-            "lat": None,
-            "lon": None,
-            "source": "South Jersey",
-            "_print_name": meeting_line,
-        })
-
-        i += 5
-
-    return found
+    return output
 
 
 # ============================================================
@@ -770,7 +497,6 @@ def geocode(
     town,
     cache,
 ):
-
     cache_key = text(
         address
     ).lower()
@@ -786,18 +512,16 @@ def geocode(
             cached.get("lon"),
         )
     ):
-
         return cached
 
     endpoint = (
         "https://geocode.arcgis.com/"
-        "arcgis/rest/services/"
-        "World/GeocodeServer/"
+        "arcgis/rest/services/World/"
+        "GeocodeServer/"
         "findAddressCandidates"
     )
 
     try:
-
         result = SESSION.get(
             endpoint,
             params={
@@ -811,38 +535,28 @@ def geocode(
 
         result.raise_for_status()
 
-        candidates = (
-            result.json()
-            .get(
-                "candidates",
-                [],
-            )
+        candidates = result.json().get(
+            "candidates",
+            [],
         )
 
         for candidate in candidates:
-
             point = (
-                candidate.get(
-                    "location"
-                )
+                candidate.get("location")
                 or {}
             )
 
             lat = point.get("y")
             lon = point.get("x")
 
-            matched = str(
-                candidate.get(
-                    "address",
-                    "",
-                )
+            matched = candidate.get(
+                "address",
+                "",
             )
 
-            score = float(
-                candidate.get(
-                    "score",
-                    0,
-                )
+            score = candidate.get(
+                "score",
+                0,
             )
 
             if not valid_coords(
@@ -868,13 +582,9 @@ def geocode(
                 "score": score,
             }
 
-            cache[
-                cache_key
-            ] = entry
+            cache[cache_key] = entry
 
-            time.sleep(
-                0.25
-            )
+            time.sleep(0.25)
 
             return entry
 
@@ -883,7 +593,6 @@ def geocode(
         ValueError,
         KeyError,
     ) as exc:
-
         LOG.warning(
             "Geocode failed for %s: %s",
             address,
@@ -894,188 +603,6 @@ def geocode(
 
 
 # ============================================================
-# SOUTH JERSEY FALLBACK CLEANUP
-# ============================================================
-
-def finish_south_fallback(
-    meetings,
-    cache,
-):
-
-    output = []
-
-    for meeting in meetings:
-
-        result = geocode(
-            meeting["address"],
-            meeting["town"],
-            cache,
-        )
-
-        if not result:
-
-            LOG.warning(
-                "South Jersey fallback "
-                "could not geocode: %s",
-                meeting["address"],
-            )
-
-            output.append(
-                meeting
-            )
-
-            continue
-
-        meeting["lat"] = (
-            result["lat"]
-        )
-
-        meeting["lon"] = (
-            result["lon"]
-        )
-
-        matched = result.get(
-            "matched",
-            "",
-        )
-
-        # ------------------------------------------
-        # Recover town from ArcGIS if the printable
-        # page did not allow us to separate it.
-        # ------------------------------------------
-
-        if not meeting["town"]:
-
-            # Typical ArcGIS result:
-            #
-            # 29 Warwick Rd,
-            # Haddonfield,
-            # New Jersey, 08033
-
-            parts = [
-                text(part)
-                for part
-                in matched.split(",")
-                if text(part)
-            ]
-
-            if len(parts) >= 2:
-
-                town = parts[1]
-
-                meeting["town"] = town
-
-                printable = (
-                    meeting.get(
-                        "_print_name",
-                        meeting["name"],
-                    )
-                )
-
-                # Printable list starts:
-                #
-                # Haddonfield Cherry Hill Young People
-                #
-                # Merchantville Young Men of Merchantville
-
-                if printable.lower().startswith(
-                    town.lower()
-                    + " "
-                ):
-
-                    meeting["name"] = (
-                        printable[
-                            len(town):
-                        ]
-                        .strip()
-                    )
-
-                # Replace temporary geocoding address
-                # with a clean user-facing address.
-
-                street_match = re.search(
-                    r"(\d[^,]+)",
-                    meeting["address"],
-                )
-
-                if street_match:
-
-                    meeting["address"] = (
-                        street_match
-                        .group(1)
-                        .strip()
-                        + ", "
-                        + town
-                        + ", NJ"
-                    )
-
-        meeting.pop(
-            "_print_name",
-            None,
-        )
-
-        output.append(
-            meeting
-        )
-
-    return output
-
-
-# ============================================================
-# DEDUPLICATION
-# ============================================================
-
-def meeting_key(meeting):
-
-    return tuple(
-        re.sub(
-            r"[^a-z0-9]",
-            "",
-            str(
-                meeting.get(
-                    field,
-                    "",
-                )
-            ).lower(),
-        )
-
-        for field in (
-            "source",
-            "name",
-            "day",
-            "time",
-            "address",
-            "types",
-        )
-    )
-
-
-def dedupe(meetings):
-
-    seen = set()
-    output = []
-
-    for meeting in meetings:
-
-        key = meeting_key(
-            meeting
-        )
-
-        if key in seen:
-            continue
-
-        seen.add(
-            key
-        )
-
-        output.append(
-            meeting
-        )
-
-    return output
-
-
-# ============================================================
 # JSON
 # ============================================================
 
@@ -1083,9 +610,7 @@ def load_json(
     path,
     fallback,
 ):
-
     try:
-
         return json.loads(
             path.read_text(
                 encoding="utf-8"
@@ -1096,7 +621,6 @@ def load_json(
         OSError,
         ValueError,
     ):
-
         return fallback
 
 
@@ -1105,11 +629,8 @@ def load_json(
 # ============================================================
 
 def sort_time(value):
-
     match = re.search(
-        r"(\d{1,2}):"
-        r"(\d{2})\s*"
-        r"(AM|PM)",
+        r"(\d{1,2}):(\d{2})\s*(AM|PM)",
         value,
         re.I,
     )
@@ -1126,8 +647,7 @@ def sort_time(value):
     )
 
     am_pm = (
-        match.group(3)
-        .upper()
+        match.group(3).upper()
     )
 
     if (
@@ -1153,7 +673,6 @@ def sort_time(value):
 # ============================================================
 
 def refresh():
-
     cache = load_json(
         CACHE,
         {},
@@ -1170,12 +689,12 @@ def refresh():
     )
 
     all_meetings = []
-
     failures = []
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # NORTHERN NJ
-    # ========================================================
+    # --------------------------------------------------------
 
     north = []
 
@@ -1183,9 +702,7 @@ def refresh():
         "Young people",
         "Young",
     ):
-
         try:
-
             markup = fetch(
                 NORTH_BASE,
                 {
@@ -1200,194 +717,116 @@ def refresh():
             )
 
             LOG.info(
-                "Northern NJ search %r: "
-                "%d matches",
+                "Northern NJ search %r: %d matches",
                 term,
                 len(result),
             )
 
             if not result:
-
                 failures.append(
-                    "Northern NJ "
-                    f"{term}: "
-                    "zero matches"
+                    "Northern NJ search "
+                    f"{term}: zero parsed meetings"
                 )
 
             north.extend(
                 result
             )
 
-        except Exception as exc:
-
+        except (
+            requests.RequestException,
+            ValueError,
+        ) as exc:
             failures.append(
-                "Northern NJ "
-                f"{term}: "
-                f"{exc}"
+                "Northern NJ search "
+                f"{term}: {exc}"
             )
 
-    north = dedupe(
-        north
+    north = dedupe(north)
+
+    LOG.info(
+        "Northern NJ after deduplication: %d meetings",
+        len(north),
     )
 
     all_meetings.extend(
         north
     )
 
-    # ========================================================
-    # SOUTH JERSEY
-    #
-    # Try /locations/ first.
-    #
-    # GitHub Actions currently receives HTTP 403
-    # from this endpoint.
-    #
-    # If it fails, use the official printable
-    # AASJ meeting list.
-    # ========================================================
-
-    south = []
-
-    try:
-
-        markup = fetch(
-            SOUTH_LOCATIONS
-        )
-
-        south = location_rows(
-            markup,
-            "South Jersey",
-        )
-
-        LOG.info(
-            "South Jersey /locations/: "
-            "%d matches",
-            len(south),
-        )
-
-    except Exception as exc:
-
-        LOG.warning(
-            "South Jersey /locations/ "
-            "unavailable: %s",
-            exc,
-        )
 
     # --------------------------------------------------------
-    # FALLBACK
+    # SOUTH JERSEY — HARDCODED
     # --------------------------------------------------------
 
-    if not south:
+    south = [
+        dict(meeting)
+        for meeting
+        in SOUTH_JERSEY_MEETINGS
+    ]
 
-        LOG.info(
-            "Using South Jersey "
-            "printable-list fallback..."
-        )
-
-        try:
-
-            markup = fetch(
-                SOUTH_PRINT
-            )
-
-            south = south_print_rows(
-                markup
-            )
-
-            LOG.info(
-                "South Jersey printable "
-                "raw matches: %d",
-                len(south),
-            )
-
-            south = (
-                finish_south_fallback(
-                    south,
-                    cache,
-                )
-            )
-
-            LOG.info(
-                "South Jersey printable "
-                "processed matches: %d",
-                len(south),
-            )
-
-        except Exception as exc:
-
-            failures.append(
-                "South Jersey fallback: "
-                + str(exc)
-            )
-
-    if not south:
-
-        failures.append(
-            "South Jersey: "
-            "zero Young meetings parsed"
-        )
+    LOG.info(
+        "South Jersey: %d hardcoded meetings",
+        len(south),
+    )
 
     all_meetings.extend(
         south
     )
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # CAPE ATLANTIC
-    # ========================================================
+    # --------------------------------------------------------
 
     try:
-
         markup = fetch(
             CAPE_URL
         )
 
-        cape = location_rows(
-            markup,
-            "Cape Atlantic",
+        cape = cape_rows(
+            markup
         )
 
         LOG.info(
-            "Cape Atlantic: "
-            "%d matches",
+            "Cape Atlantic: %d matches",
             len(cape),
         )
 
         if not cape:
-
             failures.append(
                 "Cape Atlantic: "
-                "zero Young meetings parsed"
+                "zero parsed meetings"
             )
 
         all_meetings.extend(
             cape
         )
 
-    except Exception as exc:
-
+    except (
+        requests.RequestException,
+        ValueError,
+    ) as exc:
         failures.append(
-            "Cape Atlantic: "
-            + str(exc)
+            f"Cape Atlantic: {exc}"
         )
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # DEDUPLICATE
-    # ========================================================
+    # --------------------------------------------------------
 
     all_meetings = dedupe(
         all_meetings
     )
 
-    # ========================================================
-    # GEOCODE ANY MISSING COORDINATES
+
+    # --------------------------------------------------------
+    # GEOCODE MISSING COORDINATES
     #
-    # This covers:
-    # - Northern NJ
-    # - South Jersey printable fallback
-    # ========================================================
+    # South Jersey already has hardcoded coordinates.
+    # Northern NJ still uses ArcGIS.
+    # --------------------------------------------------------
 
     for meeting in all_meetings:
-
         if valid_coords(
             meeting.get("lat"),
             meeting.get("lon"),
@@ -1412,7 +851,6 @@ def refresh():
         )
 
         if result:
-
             meeting["lat"] = (
                 result["lat"]
             )
@@ -1421,14 +859,14 @@ def refresh():
                 result["lon"]
             )
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # SOURCE COUNTS
-    # ========================================================
+    # --------------------------------------------------------
 
     source_counts = {}
 
     for meeting in all_meetings:
-
         source = meeting[
             "source"
         ]
@@ -1446,12 +884,12 @@ def refresh():
         source_counts,
     )
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # FAIL CLOSED
-    # ========================================================
+    # --------------------------------------------------------
 
     if failures:
-
         raise RuntimeError(
             "Snapshot NOT replaced: "
             + "; ".join(
@@ -1460,7 +898,6 @@ def refresh():
         )
 
     if not all_meetings:
-
         raise RuntimeError(
             "Snapshot NOT replaced: "
             "no meetings found"
@@ -1469,19 +906,18 @@ def refresh():
     if (
         old_meetings
         and len(all_meetings)
-        <
-        len(old_meetings) * 0.65
+        < len(old_meetings) * 0.65
     ):
-
         raise RuntimeError(
             "Snapshot NOT replaced: "
             "meeting count dropped "
             "by more than 35%"
         )
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # SORT
-    # ========================================================
+    # --------------------------------------------------------
 
     all_meetings.sort(
         key=lambda m: (
@@ -1495,41 +931,19 @@ def refresh():
         )
     )
 
-    # ========================================================
-    # REMOVE INTERNAL FIELDS
-    # ========================================================
 
-    for meeting in all_meetings:
-
-        for internal in (
-            "_print_name",
-        ):
-
-            meeting.pop(
-                internal,
-                None,
-            )
-
-    # ========================================================
+    # --------------------------------------------------------
     # PUBLISH
-    # ========================================================
+    # --------------------------------------------------------
 
     payload = {
-
         "updated_at": (
             dt.datetime.now(
                 dt.timezone.utc
             ).isoformat()
         ),
-
-        "meetings": (
-            all_meetings
-        ),
-
-        "source_counts": (
-            source_counts
-        ),
-
+        "meetings": all_meetings,
+        "source_counts": source_counts,
         "unmapped_count": sum(
             not valid_coords(
                 meeting.get("lat"),
@@ -1569,12 +983,9 @@ def refresh():
     )
 
     LOG.info(
-        "Published %d meetings "
-        "(%d unmapped)",
+        "Published %d meetings (%d unmapped)",
         len(all_meetings),
-        payload[
-            "unmapped_count"
-        ],
+        payload["unmapped_count"],
     )
 
 
@@ -1583,7 +994,6 @@ def refresh():
 # ============================================================
 
 if __name__ == "__main__":
-
     logging.basicConfig(
         level=logging.INFO,
         format=(
@@ -1593,11 +1003,9 @@ if __name__ == "__main__":
     )
 
     try:
-
         refresh()
 
     except Exception as exc:
-
         LOG.error(
             "%s",
             exc,
