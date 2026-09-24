@@ -1,1 +1,50 @@
-{}
+{
+  "15 basking ridge road, millington, nj": {
+    "lat": 40.677698017414,
+    "lon": -74.518973564039,
+    "matched": "15 Basking Ridge Rd, Millington, New Jersey, 07946",
+    "score": 100
+  },
+  "503 asbury ave., asbury park, nj": {
+    "lat": 40.219896277515,
+    "lon": -74.007631286051,
+    "matched": "503 Asbury Ave, Asbury Park, New Jersey, 07712",
+    "score": 100
+  },
+  "1674 old freehold rd., toms river, nj": {
+    "lat": 40.012853336526,
+    "lon": -74.203455259187,
+    "matched": "1674 Old Freehold Rd, Toms River, New Jersey, 08755",
+    "score": 100
+  },
+  "12 park st., bloomfield, nj": {
+    "lat": 40.797656211442,
+    "lon": -74.197512573655,
+    "matched": "12 Park St, Bloomfield, New Jersey, 07003",
+    "score": 100
+  },
+  "110 main st, fort lee, nj": {
+    "lat": 40.85045767522,
+    "lon": -73.966073726288,
+    "matched": "110 Main St, Fort Lee, New Jersey, 07024",
+    "score": 100
+  },
+  "20 greenville avenue, jersey city, nj": {
+    "lat": 40.69685498285,
+    "lon": -74.093858019493,
+    "matched": "20 Greenville Ave, Jersey City, New Jersey, 07305",
+    "score": 100
+  },
+  "643 forest ave., paramus, nj": {
+    "lat": 40.960198035911,
+    "lon": -74.051064799564,
+    "matched": "643 Forest Ave, Paramus, New Jersey, 07652",
+    "score": 100
+  },
+  "165-169 route 31 south, hampton, nj": {
+    "lat": 40.709443972776,
+    "lon": -74.961522545182,
+    "matched": "165 State Route 31, Hampton, New Jersey, 08827",
+    "score": 96.8
+  }
+}
