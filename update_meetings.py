@@ -127,6 +127,18 @@ SOUTH_JERSEY_MEETINGS = [
         "lon": -74.5919,
         "source": "South Jersey",
     },
+    {
+        "name": "Pluckemin Crest Kingdom Young People",
+        "day": "Saturday",
+        "time": "7:00 PM",
+        "town": "Pluckemin",
+        "location": "Pluckemin Presbyterian Church",
+        "address": "279 U.S. 202 #206 Pluckemin, NJ 07978",
+        "types": "Closed Discussion",
+        "lat":  40.6456,
+        "lon": -74.6390,
+        "source": "South Jersey",
+    },
 ]
 
 
