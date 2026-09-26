@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-25T15:18:40.823022+00:00",
+  "updated_at": "2026-09-26T01:27:02.850019+00:00",
   "meetings": [
     {
       "name": "Young People's (ACYP)",
@@ -434,6 +434,18 @@
       "source": "Northern NJ"
     },
     {
+      "name": "Pluckemin Crest Kingdom Young People",
+      "day": "Saturday",
+      "time": "7:00 PM",
+      "town": "Pluckemin",
+      "location": "Pluckemin Presbyterian Church",
+      "address": "279 U.S. 202 #206 Pluckemin, NJ 07978",
+      "types": "Closed Discussion",
+      "lat": 40.6456,
+      "lon": -74.639,
+      "source": "South Jersey"
+    },
+    {
       "name": "Sober Savages Big Book",
       "day": "Saturday",
       "time": "7:30 PM",
@@ -460,7 +472,7 @@
   ],
   "source_counts": {
     "Northern NJ": 12,
-    "South Jersey": 6,
+    "South Jersey": 7,
     "Cape Atlantic": 20
   },
   "unmapped_count": 1
